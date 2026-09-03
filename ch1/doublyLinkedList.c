@@ -29,7 +29,58 @@ void insert(Node **head, const char *value) {
     }
 
     new_node->value = copy_string(value);
-    new_node->previous 
+    new_node->previous = NULL;
+    new_node->next = NULL;
+
+    if (*head == NULL) {
+        *head = new_node;
+        return;
+    }
+
+    Node *current = *head;
+
+    while (current->next != NULL) {
+        current = current->next;
+    }
+
+    current->next = new_node;
+    new_node->previous = current;
+
 }
 
+Node *find(Node *head, const char *value) {
+    Node *current = head;
 
+    while (current != NULL) {
+        if (strcmp(current->value, value) == 0) {
+            return current;
+        }
+
+        current = current->next;
+    }
+
+    return NULL;
+}
+
+int delete_item(Node **head, const char *value) {
+    Node *node = find(*head, value);
+
+    if (node == NULL) {
+        return 0;
+    }
+
+    if (node->previous != NULL) {
+        node->previous->next = node->next;
+    } else {
+        *head = node->next;
+    }
+
+    if (node->next != NULL) {
+        node->next->previous = node-> previous;
+    }
+
+    free(node->value);
+    free(node);
+
+    return 1;
+}
