@@ -76,11 +76,53 @@ int delete_item(Node **head, const char *value) {
     }
 
     if (node->next != NULL) {
-        node->next->previous = node-> previous;
+        node->next->previous = node->previous;
     }
 
     free(node->value);
     free(node);
 
     return 1;
+}
+
+int main(void) {
+    Node *head = NULL;
+
+    printf("Inserting item1, item2, and item3.\n");
+    insert(&head, "item1");
+    insert(&head, "item2");
+    insert(&head, "item3");
+
+    Node *found = find(head, "item2");
+
+    if (found != NULL) {
+        printf("Found: %s\n", found->value);
+        printf("Previous: %s\n", found->previous->value);
+        printf("Next: %s\n", found->next->value);
+    } else {
+        printf("item2 not found.\n");
+    }
+
+    found = find(head, "item4");
+
+    if (found != NULL) {
+        printf("Found: %s\n", found->value);
+    } else {
+        printf("Item4 not found.\n");
+    }
+
+    if (delete_item(&head, "item2")) {
+        printf("Deleted item2.\n");
+    } else {
+        printf("Could not find item2 to delete.\n");
+    }
+
+    if (find(head, "item2") == NULL) {
+        printf("item2 is no longer in the list.\n");
+    }
+    
+    delete_item(&head, "item1");
+    delete_item(&head, "item3");
+
+    return 0;
 }
