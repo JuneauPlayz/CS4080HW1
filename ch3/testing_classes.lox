@@ -1,0 +1,22 @@
+class IceCream {
+  init(flavor) {
+    this.flavor = flavor;
+  }
+
+  serve() {
+    print "This is " + this.flavor + " ice cream.";
+  }
+}
+
+var cone = IceCream("vanilla");
+cone.serve();
+
+class Sundae < IceCream {
+  serve() {
+    super.serve();
+    print "It is a sundae.";
+  }
+}
+
+var s = Sundae("chocolate");
+s.serve();
