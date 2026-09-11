@@ -1,0 +1,26 @@
+// Line comment still works.
+var a = 1;
+
+/* A plain block comment. */
+var b = 2;
+
+/* Nesting: /* inner */ still inside the outer one. */
+var c = 3;
+
+/* Two levels: /* /* deep */ */ back out. */
+var d = 4;
+
+/*
+   A comment
+   spanning
+   several lines.
+*/
+print a + b + c + d;
+
+var e = /*/ not a closing delimiter */ 5;
+print e;
+
+var f = 6; /* trailing comment
+              that wraps a line */ print f;
+
+print "done";
