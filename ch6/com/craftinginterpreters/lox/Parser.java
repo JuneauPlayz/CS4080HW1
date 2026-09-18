@@ -37,7 +37,6 @@ class Parser {
 
     return expr;
   }
-
   private Expr equality() {
     Expr expr = comparison();
 
