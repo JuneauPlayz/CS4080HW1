@@ -40,7 +40,7 @@ public class Lox {
       System.out.print("> ");
       String line = reader.readLine();
       if (line == null) break;
-      run(line);
+      runRepl(line);
       hadError = false;
     }
   }
@@ -58,6 +58,26 @@ public class Lox {
     interpreter.interpret(statements);
   }
 
+    @SuppressWarnings("unchecked")
+  private static void runRepl(String source) {
+    Scanner scanner = new Scanner(source);
+    List<Token> tokens = scanner.scanTokens();
+
+    Parser parser = new Parser(tokens);
+    Object syntax = parser.parseRepl();
+
+    if (hadError) return;
+
+    if (syntax instanceof List) {
+      interpreter.interpret((List<Stmt>) syntax);
+    } else if (syntax instanceof Expr) {
+      String result = interpreter.interpret((Expr) syntax);
+      if (result != null) {
+        System.out.println("= " + result);
+      }
+    }
+  }
+  
   static void error(int line, String message) {
     report(line, "", message);
   }

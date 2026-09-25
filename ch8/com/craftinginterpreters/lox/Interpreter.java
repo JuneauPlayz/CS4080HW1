@@ -4,6 +4,7 @@ import java.util.List;
 class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   private Environment environment = new Environment();
 
+  private static final Object uninitialized = new Object();
   void interpret(List<Stmt> statements) {
     try {
       for (Stmt statement : statements) {
@@ -14,6 +15,15 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
   }
 
+  String interpret(Expr expression) {
+    try {
+      Object value = evaluate(expression);
+      return stringify(value);
+    } catch (RuntimeError error) {
+      Lox.runtimeError(error);
+      return null;
+    }
+  }
   private Object evaluate(Expr expr) {
     return expr.accept(this);
   }
@@ -175,8 +185,10 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
   @Override
   public Void visitVarStmt(Stmt.Var stmt) {
-    Object value = null;
-    if (stmt.initializer != null) value = evaluate(stmt.initializer);
+    Object value = uninitialized;
+    if (stmt.initializer != null) {
+      value = evaluate(stmt.initializer);
+    }
     environment.define(stmt.name.lexeme, value);
     return null;
   }
@@ -190,7 +202,12 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
   @Override
   public Object visitVariableExpr(Expr.Variable expr) {
-    return environment.get(expr.name);
+    Object value = environment.get(expr.name);
+    if (value == uninitialized) {
+      throw new RuntimeError(expr.name,
+          "Variable '" + expr.name.lexeme + "' has not been initialized or assigned to.");
+    }
+    return value;
   }
 
 }
