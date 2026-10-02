@@ -18,11 +18,13 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
   private static class Variable {
     final Token name;
+    final int slot;
     VariableState state;
 
-    Variable(Token name, VariableState state) {
+    Variable(Token name, VariableState state, int slot) {
       this.name = name;
       this.state = state;
+      this.slot = slot;
     }
   }
 
@@ -84,7 +86,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     if (scope.containsKey(name.lexeme)) {
       Lox.error(name, "Already a variable with this name in this scope.");
     }
-    scope.put(name.lexeme, new Variable(name, VariableState.DECLARED));
+    scope.put(name.lexeme, new Variable(name, VariableState.DECLARED, scope.size()));
   }
 
   private void define(Token name) {
@@ -92,12 +94,13 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     scopes.peek().get(name.lexeme).state = VariableState.DEFINED;
   }
 
-  private void resolveLocal(Expr expr, Token name, boolean isRead) {
+    private void resolveLocal(Expr expr, Token name, boolean isRead) {
     for (int i = scopes.size() - 1; i >= 0; i--) {
       if (scopes.get(i).containsKey(name.lexeme)) {
-        interpreter.resolve(expr, scopes.size() - 1 - i);
+        Variable variable = scopes.get(i).get(name.lexeme);
+        interpreter.resolve(expr, scopes.size() - 1 - i, variable.slot);
         if (isRead) {
-          scopes.get(i).get(name.lexeme).state = VariableState.READ;
+          variable.state = VariableState.READ;
         }
         return;
       }

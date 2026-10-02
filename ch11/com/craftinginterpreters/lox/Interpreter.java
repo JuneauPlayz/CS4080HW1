@@ -10,15 +10,17 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   private Environment environment = globals;
 
   private final Map<Expr, Integer> locals = new HashMap<>();
+  private final Map<Expr, Integer> slots = new HashMap<>();
 
-  void resolve(Expr expr, int depth) {
+  void resolve(Expr expr, int depth, int slot) {
     locals.put(expr, depth);
+    slots.put(expr, slot);
   }
 
   private Object lookUpVariable(Token name, Expr expr) {
     Integer distance = locals.get(expr);
     if (distance != null) {
-      return environment.getAt(distance, name.lexeme);
+      return environment.getAt(distance, slots.get(expr));
     } else {
       return globals.get(name);
     }
@@ -37,6 +39,14 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
       @Override
       public String toString() { return "<native fn>"; }
     });
+  }
+
+  private void define(Token name, Object value) {
+    if (environment == globals) {
+      globals.define(name.lexeme, value);
+    } else {
+      environment.defineLocal(value);
+    }
   }
 
   private static class BreakException extends RuntimeException {
@@ -222,7 +232,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   public Void visitVarStmt(Stmt.Var stmt) {
     Object value = null;
     if (stmt.initializer != null) value = evaluate(stmt.initializer);
-    environment.define(stmt.name.lexeme, value);
+    define(stmt.name, value);
     return null;
   }
 
@@ -232,7 +242,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     Integer distance = locals.get(expr);
     if (distance != null) {
-      environment.assignAt(distance, expr.name, value);
+      environment.assignAt(distance, slots.get(expr), value);
     } else {
       globals.assign(expr.name, value);
     }
@@ -302,7 +312,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   @Override
   public Void visitFunctionStmt(Stmt.Function stmt) {
     LoxFunction function = new LoxFunction(stmt, environment);
-    environment.define(stmt.name.lexeme, function);
+    define(stmt.name, function);
     return null;
   }
 

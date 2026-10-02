@@ -1,15 +1,19 @@
 package com.craftinginterpreters.lox;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 class Environment {
   final Environment enclosing;
-  private final Map<String, Object> values = new HashMap<>();
+  private final Map<String, Object> values = new HashMap<>();   // globals, by name
+  private final List<Object> slots = new ArrayList<>();          // locals, by index
 
   Environment() { enclosing = null; }
   Environment(Environment enclosing) { this.enclosing = enclosing; }
 
+  // ----- Globals (by name) -----
   Object get(Token name) {
     if (values.containsKey(name.lexeme)) return values.get(name.lexeme);
     if (enclosing != null) return enclosing.get(name);
@@ -32,6 +36,11 @@ class Environment {
     values.put(name, value);
   }
 
+  // ----- Locals (by slot index) -----
+  void defineLocal(Object value) {
+    slots.add(value);
+  }
+
   Environment ancestor(int distance) {
     Environment environment = this;
     for (int i = 0; i < distance; i++) {
@@ -40,11 +49,11 @@ class Environment {
     return environment;
   }
 
-  Object getAt(int distance, String name) {
-    return ancestor(distance).values.get(name);
+  Object getAt(int distance, int slot) {
+    return ancestor(distance).slots.get(slot);
   }
 
-  void assignAt(int distance, Token name, Object value) {
-    ancestor(distance).values.put(name.lexeme, value);
+  void assignAt(int distance, int slot, Object value) {
+    ancestor(distance).slots.set(slot, value);
   }
 }
