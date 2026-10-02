@@ -120,6 +120,13 @@ class Parser {
     if (match(NUMBER, STRING)) {
       return new Expr.Literal(previous().literal);
     }
+
+    if (match(FUN)) {
+      Token keyword = previous();
+      Token name = new Token(IDENTIFIER, "lambda", null, keyword.line);
+      return new Expr.Lambda(functionBody(name, "lambda"));
+    }
+
     if (match(IDENTIFIER)) return new Expr.Variable(previous());
 
     if (match(LEFT_PAREN)) {
@@ -178,6 +185,12 @@ class Parser {
     return peek().type == type;
   }
 
+  private boolean checkNext(TokenType type) {
+    if (isAtEnd()) return false;
+    if (tokens.get(current + 1).type == EOF) return false;
+    return tokens.get(current + 1).type == type;
+  }
+
   private Token advance() {
     if (!isAtEnd()) current++;
     return previous();
@@ -223,15 +236,18 @@ class Parser {
   }
 
   private Stmt declaration() {
-  try {
-    if (match(FUN)) return function("function");
-    if (match(VAR)) return varDeclaration();
-    return statement();
-  } catch (ParseError error) {
-    synchronize();
-    return null;
+    try {
+      if (check(FUN) && checkNext(IDENTIFIER)) {
+        advance();                       // consume 'fun'
+        return function("function");
+      }
+      if (match(VAR)) return varDeclaration();
+      return statement();
+    } catch (ParseError error) {
+      synchronize();
+      return null;
+    }
   }
-}
 
   private Stmt varDeclaration() {
     Token name = consume(IDENTIFIER, "Expect variable name.");
@@ -378,6 +394,10 @@ class Parser {
 
   private Stmt.Function function(String kind) {
     Token name = consume(IDENTIFIER, "Expect " + kind + " name.");
+    return functionBody(name, kind);
+  }
+
+  private Stmt.Function functionBody(Token name, String kind) {
     consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
     List<Token> parameters = new ArrayList<>();
     if (!check(RIGHT_PAREN)) {
@@ -392,7 +412,6 @@ class Parser {
 
     consume(LEFT_BRACE, "Expect '{' before " + kind + " body.");
 
-    // A function body is not inside the surrounding loop, so 'break' can't escape it.
     int enclosingLoopDepth = loopDepth;
     loopDepth = 0;
     List<Stmt> body;
@@ -404,6 +423,7 @@ class Parser {
 
     return new Stmt.Function(name, parameters, body);
   }
+
 
   private Stmt returnStatement() {
     Token keyword = previous();

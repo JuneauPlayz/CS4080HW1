@@ -288,4 +288,9 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     if (stmt.value != null) value = evaluate(stmt.value);
     throw new Return(value);
   }
+
+  @Override
+  public Object visitLambdaExpr(Expr.Lambda expr) {
+    return new LoxFunction(expr.function, environment);
+  }
 }
