@@ -285,6 +285,9 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     Token thisToken = new Token(TokenType.THIS, "this", null, stmt.name.line);
     scopes.peek().put("this", new Variable(thisToken, VariableState.READ, 0));
 
+    Token innerToken = new Token(TokenType.IDENTIFIER, "inner", null, stmt.name.line);
+    scopes.peek().put("inner", new Variable(innerToken, VariableState.READ, 1));
+    
     for (Stmt.Function method : stmt.methods) {
       FunctionType declaration = FunctionType.METHOD;
       if (method.name.lexeme.equals("init")) {

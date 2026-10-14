@@ -14,8 +14,28 @@ class LoxFunction implements LoxCallable {
   }
 
   LoxFunction bind(LoxInstance instance) {
+    return bind(instance, null);
+  }
+
+  LoxFunction bind(LoxInstance instance, LoxCallable inner) {
     Environment environment = new Environment(closure);
-    environment.defineLocal(instance);          // "this" is slot 0
+    environment.defineLocal(instance);                      // slot 0: this
+
+    if (inner == null) {
+      final int innerArity = arity();
+      inner = new LoxCallable() {                           // no subclass method: do nothing
+        @Override
+        public int arity() { return innerArity; }
+
+        @Override
+        public Object call(Interpreter interpreter, List<Object> arguments) { return null; }
+
+        @Override
+        public String toString() { return "<fn inner>"; }
+      };
+    }
+    environment.defineLocal(inner);                         // slot 1: inner
+
     return new LoxFunction(declaration, environment, isInitializer);
   }
 

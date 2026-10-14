@@ -1,6 +1,7 @@
 package com.craftinginterpreters.lox;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 
 class LoxClass implements LoxCallable {
@@ -15,19 +16,17 @@ class LoxClass implements LoxCallable {
   }
 
   LoxFunction findMethod(String name) {
-    if (methods.containsKey(name)) {
-      return methods.get(name);
-    }
     if (superclass != null) {
-      return superclass.findMethod(name);
+      LoxFunction method = superclass.findMethod(name);
+      if (method != null) return method;
     }
-    return null;
+    return methods.get(name);
   }
 
   @Override
   public Object call(Interpreter interpreter, List<Object> arguments) {
     LoxInstance instance = new LoxInstance(this);
-    LoxFunction initializer = findMethod("init");
+    LoxFunction initializer = bindMethod(instance, "init");
     if (initializer != null) {
       initializer.bind(instance).call(interpreter, arguments);
     }
@@ -44,5 +43,23 @@ class LoxClass implements LoxCallable {
   @Override
   public String toString() {
     return name;
+  }
+
+  LoxFunction bindMethod(LoxInstance instance, String name) {
+    List<LoxFunction> versions = new ArrayList<>();
+    for (LoxClass c = this; c != null; c = c.superclass) {
+      if (c.methods.containsKey(name)) {
+        versions.add(0, c.methods.get(name));
+      }
+    }
+    if (versions.isEmpty()) return null;
+
+    LoxCallable inner = null;
+    LoxFunction bound = null;
+    for (int i = versions.size() - 1; i >= 0; i--) {
+      bound = versions.get(i).bind(instance, inner);
+      inner = bound;
+    }
+    return bound;
   }
 }
