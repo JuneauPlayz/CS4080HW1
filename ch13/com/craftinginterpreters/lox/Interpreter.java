@@ -335,7 +335,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     if (stmt.superclass != null) {
       environment = new Environment(environment);
-      environment.defineLocal(superclass);       // "super" is slot 0
+      environment.defineLocal(superclass);
     }
 
     Map<String, LoxFunction> methods = new HashMap<>();
@@ -387,7 +387,6 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     int distance = locals.get(expr);
     LoxClass superclass = (LoxClass) environment.getAt(distance, slots.get(expr));
 
-    // "this" is always slot 0 of the environment one step closer.
     LoxInstance object = (LoxInstance) environment.getAt(distance - 1, 0);
 
     LoxFunction method = superclass.findMethod(expr.method.lexeme);

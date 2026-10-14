@@ -266,17 +266,22 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     declare(stmt.name);
     define(stmt.name);
 
-    // Scope holding "this" in slot 0. Marked READ so the unused check ignores it.
     beginScope();
     Token thisToken = new Token(TokenType.THIS, "this", null, stmt.name.line);
     scopes.peek().put("this", new Variable(thisToken, VariableState.READ, 0));
 
+    // Instance methods
     for (Stmt.Function method : stmt.methods) {
       FunctionType declaration = FunctionType.METHOD;
       if (method.name.lexeme.equals("init")) {
         declaration = FunctionType.INITIALIZER;
       }
       resolveFunction(method, declaration);
+    }
+
+    // Class (static) methods
+    for (Stmt.Function method : stmt.classMethods) {
+      resolveFunction(method, FunctionType.METHOD);
     }
 
     endScope();

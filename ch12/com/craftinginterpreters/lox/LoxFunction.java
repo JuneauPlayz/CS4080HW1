@@ -15,7 +15,7 @@ class LoxFunction implements LoxCallable {
 
   LoxFunction bind(LoxInstance instance) {
     Environment environment = new Environment(closure);
-    environment.defineLocal(instance);          // "this" is slot 0
+    environment.defineLocal(instance);
     return new LoxFunction(declaration, environment, isInitializer);
   }
 
@@ -34,7 +34,7 @@ class LoxFunction implements LoxCallable {
     try {
       interpreter.executeBlock(declaration.body, environment);
     } catch (Return returnValue) {
-      if (isInitializer) return closure.getAt(0, 0);   // init() always returns this
+      if (isInitializer) return closure.getAt(0, 0);
       return returnValue.value;
     }
 

@@ -275,14 +275,12 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     if (stmt.superclass != null) {
       currentClass = ClassType.SUBCLASS;
       resolve(stmt.superclass);
-
-      // Scope holding "super" in slot 0.
+      
       beginScope();
       Token superToken = new Token(TokenType.SUPER, "super", null, stmt.name.line);
       scopes.peek().put("super", new Variable(superToken, VariableState.READ, 0));
     }
 
-    // Scope holding "this" in slot 0.
     beginScope();
     Token thisToken = new Token(TokenType.THIS, "this", null, stmt.name.line);
     scopes.peek().put("this", new Variable(thisToken, VariableState.READ, 0));
