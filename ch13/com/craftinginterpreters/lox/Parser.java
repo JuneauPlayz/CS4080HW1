@@ -236,12 +236,26 @@ class Parser {
     if (match(CLASS)) return classDeclaration();
     if (match(FUN)) return function("function");
     if (match(VAR)) return varDeclaration();
+    if (match(TRAIT)) return traitDeclaration();
     return statement();
   } catch (ParseError error) {
     synchronize();
     return null;
   }
 }
+
+  private Stmt traitDeclaration() {
+    Token name = consume(IDENTIFIER, "Expect trait name.");
+    consume(LEFT_BRACE, "Expect '{' before trait body.");
+
+    List<Stmt.Function> methods = new ArrayList<>();
+    while (!check(RIGHT_BRACE) && !isAtEnd()) {
+      methods.add(function("method"));
+    }
+
+    consume(RIGHT_BRACE, "Expect '}' after trait body.");
+    return new Stmt.Trait(name, methods);
+  }
 
   private Stmt varDeclaration() {
     Token name = consume(IDENTIFIER, "Expect variable name.");
@@ -467,6 +481,13 @@ class Parser {
       superclass = new Expr.Variable(previous());
     }
 
+    List<Expr.Variable> traits = new ArrayList<>();
+    if (match(WITH)) {
+      do {
+        consume(IDENTIFIER, "Expect trait name.");
+        traits.add(new Expr.Variable(previous()));
+      } while (match(COMMA));
+    }
     consume(LEFT_BRACE, "Expect '{' before class body.");
 
     List<Stmt.Function> methods = new ArrayList<>();
@@ -475,6 +496,6 @@ class Parser {
     }
 
     consume(RIGHT_BRACE, "Expect '}' after class body.");
-    return new Stmt.Class(name, superclass, methods);
+    return new Stmt.Class(name, superclass, traits, methods);
   }
 }

@@ -31,6 +31,8 @@ class Scanner {
     keywords.put("var",    VAR);
     keywords.put("while",  WHILE);
     keywords.put("break",  BREAK);
+    keywords.put("trait", TRAIT);
+    keywords.put("with", WITH);
   }
 //< keyword-map
   private final String source;

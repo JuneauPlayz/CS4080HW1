@@ -271,6 +271,10 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         stmt.name.lexeme.equals(stmt.superclass.name.lexeme)) {
       Lox.error(stmt.superclass.name, "A class can't inherit from itself.");
     }
+    
+    for (Expr.Variable trait : stmt.traits) {
+      resolve(trait);
+    }
 
     if (stmt.superclass != null) {
       currentClass = ClassType.SUBCLASS;
@@ -287,7 +291,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
     Token innerToken = new Token(TokenType.IDENTIFIER, "inner", null, stmt.name.line);
     scopes.peek().put("inner", new Variable(innerToken, VariableState.READ, 1));
-    
+
     for (Stmt.Function method : stmt.methods) {
       FunctionType declaration = FunctionType.METHOD;
       if (method.name.lexeme.equals("init")) {
@@ -336,6 +340,33 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
       return null;
     }
     resolveLocal(expr, expr.keyword, true);
+    return null;
+  }
+
+  @Override
+  public Void visitTraitStmt(Stmt.Trait stmt) {
+    declare(stmt.name);
+    define(stmt.name);
+
+    ClassType enclosingClass = currentClass;
+    currentClass = ClassType.CLASS;
+
+    beginScope();
+    Token thisToken = new Token(TokenType.THIS, "this", null, stmt.name.line);
+    scopes.peek().put("this", new Variable(thisToken, VariableState.READ, 0));
+    Token innerToken = new Token(TokenType.IDENTIFIER, "inner", null, stmt.name.line);
+    scopes.peek().put("inner", new Variable(innerToken, VariableState.READ, 1));
+
+    for (Stmt.Function method : stmt.methods) {
+      FunctionType declaration = FunctionType.METHOD;
+      if (method.name.lexeme.equals("init")) {
+        declaration = FunctionType.INITIALIZER;
+      }
+      resolveFunction(method, declaration);
+    }
+
+    endScope();
+    currentClass = enclosingClass;
     return null;
   }
 }

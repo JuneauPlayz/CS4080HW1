@@ -332,13 +332,14 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         throw new RuntimeError(stmt.superclass.name, "Superclass must be a class.");
       }
     }
-
+    
     if (stmt.superclass != null) {
       environment = new Environment(environment);
       environment.defineLocal(superclass);
     }
 
-    Map<String, LoxFunction> methods = new HashMap<>();
+    Map<String, LoxFunction> methods = applyTraits(stmt.traits);
+
     for (Stmt.Function method : stmt.methods) {
       LoxFunction function = new LoxFunction(method, environment,
           method.name.lexeme.equals("init"));
@@ -395,5 +396,38 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
           "Undefined property '" + expr.method.lexeme + "'.");
     }
     return method.bind(object);
+  }
+
+  @Override
+  public Void visitTraitStmt(Stmt.Trait stmt) {
+    Map<String, LoxFunction> methods = new HashMap<>();
+    for (Stmt.Function method : stmt.methods) {
+      LoxFunction function = new LoxFunction(method, environment,
+          method.name.lexeme.equals("init"));
+      methods.put(method.name.lexeme, function);
+    }
+    define(stmt.name, new LoxTrait(stmt.name, methods));
+    return null;
+  }
+
+  private Map<String, LoxFunction> applyTraits(List<Expr.Variable> traits) {
+    Map<String, LoxFunction> methods = new HashMap<>();
+    for (Expr.Variable traitExpr : traits) {
+      Object trait = evaluate(traitExpr);
+      if (!(trait instanceof LoxTrait)) {
+        throw new RuntimeError(traitExpr.name,
+            "'" + traitExpr.name.lexeme + "' is not a trait.");
+      }
+
+      LoxTrait loxTrait = (LoxTrait) trait;
+      for (String name : loxTrait.methods.keySet()) {
+        if (methods.containsKey(name)) {
+          throw new RuntimeError(loxTrait.name,
+              "A previous trait declares a method named '" + name + "'.");
+        }
+        methods.put(name, loxTrait.methods.get(name));
+      }
+    }
+    return methods;
   }
 }
