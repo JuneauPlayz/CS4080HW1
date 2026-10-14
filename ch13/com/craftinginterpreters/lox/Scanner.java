@@ -33,6 +33,7 @@ class Scanner {
     keywords.put("break",  BREAK);
     keywords.put("trait", TRAIT);
     keywords.put("with", WITH);
+    keywords.put("continue", CONTINUE);
   }
 //< keyword-map
   private final String source;

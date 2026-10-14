@@ -7,6 +7,7 @@ abstract class Stmt {
     R visitBlockStmt(Block stmt);
     R visitBreakStmt(Break stmt);
     R visitClassStmt(Class stmt);
+    R visitContinueStmt(Continue stmt);
     R visitExpressionStmt(Expression stmt);
     R visitFunctionStmt(Function stmt);
     R visitIfStmt(If stmt);
@@ -57,6 +58,18 @@ abstract class Stmt {
     final Expr.Variable superclass;
     final List<Expr.Variable> traits;
     final List<Stmt.Function> methods;
+  }
+  static class Continue extends Stmt {
+    Continue(Token keyword) {
+      this.keyword = keyword;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitContinueStmt(this);
+    }
+
+    final Token keyword;
   }
   static class Expression extends Stmt {
     Expression(Expr expression) {
@@ -143,9 +156,10 @@ abstract class Stmt {
     final Expr initializer;
   }
   static class While extends Stmt {
-    While(Expr condition, Stmt body) {
+    While(Expr condition, Stmt body, Expr increment) {
       this.condition = condition;
       this.body = body;
+      this.increment = increment;
     }
 
     @Override
@@ -155,6 +169,7 @@ abstract class Stmt {
 
     final Expr condition;
     final Stmt body;
+    final Expr increment;
   }
   static class Trait extends Stmt {
     Trait(Token name, List<Stmt.Function> methods) {

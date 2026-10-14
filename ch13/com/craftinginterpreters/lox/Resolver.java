@@ -188,6 +188,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
   public Void visitWhileStmt(Stmt.While stmt) {
     resolve(stmt.condition);
     resolve(stmt.body);
+    if (stmt.increment != null) resolve(stmt.increment);
     return null;
   }
 
@@ -367,6 +368,11 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
     endScope();
     currentClass = enclosingClass;
+    return null;
+  }
+
+  @Override
+  public Void visitContinueStmt(Stmt.Continue stmt) {
     return null;
   }
 }

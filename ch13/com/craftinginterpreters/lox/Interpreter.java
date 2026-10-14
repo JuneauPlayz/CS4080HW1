@@ -64,6 +64,12 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
   }
 
+  private static class ContinueException extends RuntimeException {
+    ContinueException() {
+      super(null, null, false, false);
+    }
+  }
+
   private Object evaluate(Expr expr) {
     return expr.accept(this);
   }
@@ -268,10 +274,13 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   public Void visitWhileStmt(Stmt.While stmt) {
     try {
       while (isTruthy(evaluate(stmt.condition))) {
-        execute(stmt.body);
+        try {
+          execute(stmt.body);
+        } catch (ContinueException e) {
+        }
+        if (stmt.increment != null) evaluate(stmt.increment);
       }
     } catch (BreakException e) {
-      // break: exit the loop
     }
     return null;
   }
@@ -429,5 +438,10 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
       }
     }
     return methods;
+  }
+
+  @Override
+  public Void visitContinueStmt(Stmt.Continue stmt) {
+    throw new ContinueException();
   }
 }
