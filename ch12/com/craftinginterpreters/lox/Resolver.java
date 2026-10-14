@@ -65,10 +65,12 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     currentFunction = type;
 
     beginScope();
-    for (Token param : function.params) {
-      declare(param);
-      define(param);
-      scopes.peek().get(param.lexeme).state = VariableState.READ;
+    if (function.params != null) {
+      for (Token param : function.params) {
+        declare(param);
+        define(param);
+        scopes.peek().get(param.lexeme).state = VariableState.READ;
+      }
     }
     resolve(function.body);
     endScope();
