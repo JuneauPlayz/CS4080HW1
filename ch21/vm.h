@@ -5,13 +5,18 @@
 #include "table.h"
 #include "value.h"
 
+#define UNDEFINED_VAL       OBJ_VAL(NULL)
+#define IS_UNDEFINED(value) (IS_OBJ(value) && AS_OBJ(value) == NULL)
+
 typedef struct {
   Chunk* chunk;
   uint8_t* ip;
   Value* stack;
   int stackCapacity;
   Value* stackTop;
-  Table globals;
+  Table globalSlots;
+  ValueArray globalValues;
+  ValueArray globalNames;
   Table strings;
   Obj* objects;
 } VM;

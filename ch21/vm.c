@@ -34,12 +34,16 @@ void initVM(void) {
   resetStack();
   vm.objects = NULL;
 
-  initTable(&vm.globals);
+  initTable(&vm.globalSlots);
+  initValueArray(&vm.globalValues);
+  initValueArray(&vm.globalNames);
   initTable(&vm.strings);
 }
 
 void freeVM(void) {
-  freeTable(&vm.globals);
+  freeTable(&vm.globalSlots);
+  freeValueArray(&vm.globalValues);
+  freeValueArray(&vm.globalNames);
   freeTable(&vm.strings);
   freeObjects();
   FREE_ARRAY(Value, vm.stack, vm.stackCapacity);
@@ -91,7 +95,6 @@ static void concatenate(void) {
 static InterpretResult run(void) {
 #define READ_BYTE() (*vm.ip++)
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
-#define READ_STRING() AS_STRING(READ_CONSTANT())
 #define BINARY_OP(valueType, op) \
     do { \
       if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1))) { \
@@ -128,28 +131,29 @@ static InterpretResult run(void) {
       case OP_FALSE: push(BOOL_VAL(false)); break;
       case OP_POP: pop(); break;
       case OP_GET_GLOBAL: {
-        ObjString* name = READ_STRING();
-        Value value;
-        if (!tableGet(&vm.globals, name, &value)) {
-          runtimeError("Undefined variable '%s'.", name->chars);
+        uint8_t slot = READ_BYTE();
+        Value value = vm.globalValues.values[slot];
+        if (IS_UNDEFINED(value)) {
+          runtimeError("Undefined variable '%s'.",
+                       AS_CSTRING(vm.globalNames.values[slot]));
           return INTERPRET_RUNTIME_ERROR;
         }
         push(value);
         break;
       }
       case OP_DEFINE_GLOBAL: {
-        ObjString* name = READ_STRING();
-        tableSet(&vm.globals, name, peek(0));
+        vm.globalValues.values[READ_BYTE()] = peek(0);
         pop();
         break;
       }
       case OP_SET_GLOBAL: {
-        ObjString* name = READ_STRING();
-        if (tableSet(&vm.globals, name, peek(0))) {
-          tableDelete(&vm.globals, name);
-          runtimeError("Undefined variable '%s'.", name->chars);
+        uint8_t slot = READ_BYTE();
+        if (IS_UNDEFINED(vm.globalValues.values[slot])) {
+          runtimeError("Undefined variable '%s'.",
+                       AS_CSTRING(vm.globalNames.values[slot]));
           return INTERPRET_RUNTIME_ERROR;
         }
+        vm.globalValues.values[slot] = peek(0);
         break;
       }
       case OP_EQUAL: {
@@ -204,7 +208,6 @@ static InterpretResult run(void) {
 
 #undef READ_BYTE
 #undef READ_CONSTANT
-#undef READ_STRING
 #undef BINARY_OP
 }
 

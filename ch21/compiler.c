@@ -41,7 +41,6 @@ typedef struct {
 
 Parser parser;
 Chunk* compilingChunk;
-Table identifierConstants;
 
 static Chunk* currentChunk(void) {
   return compilingChunk;
@@ -143,15 +142,22 @@ static void declaration(void);
 static ParseRule* getRule(TokenType type);
 static void parsePrecedence(Precedence precedence);
 
-static uint8_t identifierConstant(Token* name) {
+static uint8_t globalSlot(Token* name) {
   ObjString* identifier = copyString(name->start, name->length);
-  Value existing;
-  if (tableGet(&identifierConstants, identifier, &existing)) {
-    return (uint8_t)AS_NUMBER(existing);
+  Value slot;
+  if (tableGet(&vm.globalSlots, identifier, &slot)) {
+    return (uint8_t)AS_NUMBER(slot);
   }
 
-  uint8_t index = makeConstant(OBJ_VAL(identifier));
-  tableSet(&identifierConstants, identifier, NUMBER_VAL((double)index));
+  if (vm.globalValues.count > UINT8_MAX) {
+    error("Too many global variables.");
+    return 0;
+  }
+
+  uint8_t index = (uint8_t)vm.globalValues.count;
+  writeValueArray(&vm.globalValues, UNDEFINED_VAL);
+  writeValueArray(&vm.globalNames, OBJ_VAL(identifier));
+  tableSet(&vm.globalSlots, identifier, NUMBER_VAL((double)index));
   return index;
 }
 
@@ -200,7 +206,7 @@ static void string(bool canAssign) {
 }
 
 static void namedVariable(Token name, bool canAssign) {
-  uint8_t arg = identifierConstant(&name);
+  uint8_t arg = globalSlot(&name);
 
   if (canAssign && match(TOKEN_EQUAL)) {
     expression();
@@ -293,7 +299,7 @@ static void parsePrecedence(Precedence precedence) {
 
 static uint8_t parseVariable(const char* errorMessage) {
   consume(TOKEN_IDENTIFIER, errorMessage);
-  return identifierConstant(&parser.previous);
+  return globalSlot(&parser.previous);
 }
 
 static void defineVariable(uint8_t global) {
@@ -379,7 +385,6 @@ static void statement(void) {
 bool compile(const char* source, Chunk* chunk) {
   initScanner(source);
   compilingChunk = chunk;
-  initTable(&identifierConstants);
 
   parser.hadError = false;
   parser.panicMode = false;
@@ -391,6 +396,5 @@ bool compile(const char* source, Chunk* chunk) {
   }
 
   endCompiler();
-  freeTable(&identifierConstants);
   return !parser.hadError;
 }
