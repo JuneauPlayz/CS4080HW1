@@ -170,8 +170,8 @@ static void number(void) {
 }
 
 static void string(void) {
-  emitConstant(OBJ_VAL(copyString(parser.previous.start + 1,
-                                  parser.previous.length - 2)));
+  emitConstant(OBJ_VAL(constantString(parser.previous.start + 1,
+                                      parser.previous.length - 2)));
 }
 
 static void unary(void) {
