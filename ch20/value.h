@@ -43,6 +43,7 @@ typedef struct {
 } ValueArray;
 
 bool valuesEqual(Value a, Value b);
+uint32_t hashValue(Value value);
 void initValueArray(ValueArray* array);
 void writeValueArray(ValueArray* array, Value value);
 void freeValueArray(ValueArray* array);

@@ -49,3 +49,26 @@ bool valuesEqual(Value a, Value b) {
     default:         return false;
   }
 }
+
+static uint32_t hashNumber(double number) {
+  if (number == 0) number = 0;
+
+  uint64_t bits;
+  memcpy(&bits, &number, sizeof(bits));
+  bits ^= bits >> 33;
+  bits *= 0xff51afd7ed558ccdULL;
+  bits ^= bits >> 33;
+  bits *= 0xc4ceb9fe1a85ec53ULL;
+  bits ^= bits >> 33;
+  return (uint32_t)bits;
+}
+
+uint32_t hashValue(Value value) {
+  switch (value.type) {
+    case VAL_BOOL:   return AS_BOOL(value) ? 1231 : 1237;
+    case VAL_NIL:    return 0;
+    case VAL_NUMBER: return hashNumber(AS_NUMBER(value));
+    case VAL_OBJ:    return AS_STRING(value)->hash;
+    default:         return 0;
+  }
+}
