@@ -43,12 +43,14 @@ typedef struct {
 typedef struct {
   Token name;
   int depth;
+  int shadowed;
 } Local;
 
 typedef struct {
   Local locals[UINT8_COUNT];
   int localCount;
   int scopeDepth;
+  Table names;
 } Compiler;
 
 Parser parser;
@@ -143,6 +145,7 @@ static void emitConstant(Value value) {
 static void initCompiler(Compiler* compiler) {
   compiler->localCount = 0;
   compiler->scopeDepth = 0;
+  initTable(&compiler->names);
   current = compiler;
 }
 
@@ -165,6 +168,14 @@ static void endScope(void) {
   while (current->localCount > 0 &&
          current->locals[current->localCount - 1].depth >
             current->scopeDepth) {
+    Local* local = &current->locals[current->localCount - 1];
+    ObjString* key = copyString(local->name.start, local->name.length);
+    if (local->shadowed == -1) {
+      tableDelete(&current->names, key);
+    } else {
+      tableSet(&current->names, key, NUMBER_VAL((double)local->shadowed));
+    }
+
     emitByte(OP_POP);
     current->localCount--;
   }
@@ -195,23 +206,20 @@ static uint8_t globalSlot(Token* name) {
   return index;
 }
 
-static bool identifiersEqual(Token* a, Token* b) {
-  if (a->length != b->length) return false;
-  return memcmp(a->start, b->start, a->length) == 0;
+static int findLocal(Compiler* compiler, Token* name) {
+  Value index;
+  ObjString* key = copyString(name->start, name->length);
+  if (!tableGet(&compiler->names, key, &index)) return -1;
+  return (int)AS_NUMBER(index);
 }
 
 static int resolveLocal(Compiler* compiler, Token* name) {
-  for (int i = compiler->localCount - 1; i >= 0; i--) {
-    Local* local = &compiler->locals[i];
-    if (identifiersEqual(name, &local->name)) {
-      if (local->depth == -1) {
-        error("Can't read local variable in its own initializer.");
-      }
-      return i;
-    }
+  int i = findLocal(compiler, name);
+  if (i != -1 && compiler->locals[i].depth == -1) {
+    error("Can't read local variable in its own initializer.");
   }
 
-  return -1;
+  return i;
 }
 
 static void addLocal(Token name) {
@@ -220,22 +228,24 @@ static void addLocal(Token name) {
     return;
   }
 
-  Local* local = &current->locals[current->localCount++];
+  Local* local = &current->locals[current->localCount];
   local->name = name;
   local->depth = -1;
+  local->shadowed = findLocal(current, &name);
+
+  ObjString* key = copyString(name.start, name.length);
+  tableSet(&current->names, key, NUMBER_VAL((double)current->localCount));
+  current->localCount++;
 }
 
 static void declareVariable(void) {
   if (current->scopeDepth == 0) return;
 
   Token* name = &parser.previous;
-  for (int i = current->localCount - 1; i >= 0; i--) {
+  int i = findLocal(current, name);
+  if (i != -1) {
     Local* local = &current->locals[i];
-    if (local->depth != -1 && local->depth < current->scopeDepth) {
-      break;
-    }
-
-    if (identifiersEqual(name, &local->name)) {
+    if (local->depth == -1 || local->depth == current->scopeDepth) {
       error("Already a variable with this name in this scope.");
     }
   }
@@ -515,5 +525,6 @@ bool compile(const char* source, Chunk* chunk) {
   }
 
   endCompiler();
+  freeTable(&compiler.names);
   return !parser.hadError;
 }
