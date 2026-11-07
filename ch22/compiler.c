@@ -4,6 +4,7 @@
 
 #include "common.h"
 #include "compiler.h"
+#include "memory.h"
 #include "object.h"
 #include "scanner.h"
 
@@ -48,7 +49,8 @@ typedef struct {
 } Local;
 
 typedef struct {
-  Local locals[UINT8_COUNT];
+  Local* locals;
+  int localCapacity;
   int localCount;
   int scopeDepth;
   Table names;
@@ -143,7 +145,18 @@ static void emitConstant(Value value) {
   emitBytes(OP_CONSTANT, makeConstant(value));
 }
 
+static void emitVariable(uint8_t op, int arg) {
+  if (arg > UINT8_MAX) {
+    emitByte(op);
+    emitBytes((uint8_t)((arg >> 8) & 0xff), (uint8_t)(arg & 0xff));
+  } else {
+    emitBytes(op, (uint8_t)arg);
+  }
+}
+
 static void initCompiler(Compiler* compiler) {
+  compiler->locals = NULL;
+  compiler->localCapacity = 0;
   compiler->localCount = 0;
   compiler->scopeDepth = 0;
   initTable(&compiler->names);
@@ -225,9 +238,16 @@ static int resolveLocal(Compiler* compiler, Token* name) {
 }
 
 static void addLocal(Token name) {
-  if (current->localCount == UINT8_COUNT) {
+  if (current->localCount == UINT16_COUNT) {
     error("Too many local variables in function.");
     return;
+  }
+
+  if (current->localCapacity < current->localCount + 1) {
+    int oldCapacity = current->localCapacity;
+    current->localCapacity = GROW_CAPACITY(oldCapacity);
+    current->locals = GROW_ARRAY(Local, current->locals,
+                                 oldCapacity, current->localCapacity);
   }
 
   Local* local = &current->locals[current->localCount];
@@ -307,6 +327,10 @@ static void namedVariable(Token name, bool canAssign) {
   if (arg != -1) {
     getOp = OP_GET_LOCAL;
     setOp = OP_SET_LOCAL;
+    if (arg > UINT8_MAX) {
+      getOp = OP_GET_LOCAL_LONG;
+      setOp = OP_SET_LOCAL_LONG;
+    }
     isConst = current->locals[arg].isConst;
   } else {
     arg = globalSlot(&name);
@@ -320,9 +344,9 @@ static void namedVariable(Token name, bool canAssign) {
       error("Can't assign to a constant variable.");
     }
     expression();
-    emitBytes(setOp, (uint8_t)arg);
+    emitVariable(setOp, arg);
   } else {
-    emitBytes(getOp, (uint8_t)arg);
+    emitVariable(getOp, arg);
   }
 }
 
@@ -547,5 +571,6 @@ bool compile(const char* source, Chunk* chunk) {
 
   endCompiler();
   freeTable(&compiler.names);
+  FREE_ARRAY(Local, compiler.locals, compiler.localCapacity);
   return !parser.hadError;
 }
