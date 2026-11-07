@@ -43,6 +43,7 @@ typedef struct {
 typedef struct {
   Token name;
   int depth;
+  bool isConst;
   int shadowed;
 } Local;
 
@@ -202,6 +203,7 @@ static uint8_t globalSlot(Token* name) {
   uint8_t index = (uint8_t)vm.globalValues.count;
   writeValueArray(&vm.globalValues, UNDEFINED_VAL);
   writeValueArray(&vm.globalNames, OBJ_VAL(identifier));
+  writeValueArray(&vm.globalConsts, BOOL_VAL(false));
   tableSet(&vm.globalSlots, identifier, NUMBER_VAL((double)index));
   return index;
 }
@@ -231,6 +233,7 @@ static void addLocal(Token name) {
   Local* local = &current->locals[current->localCount];
   local->name = name;
   local->depth = -1;
+  local->isConst = false;
   local->shadowed = findLocal(current, &name);
 
   ObjString* key = copyString(name.start, name.length);
@@ -299,17 +302,23 @@ static void string(bool canAssign) {
 
 static void namedVariable(Token name, bool canAssign) {
   uint8_t getOp, setOp;
+  bool isConst;
   int arg = resolveLocal(current, &name);
   if (arg != -1) {
     getOp = OP_GET_LOCAL;
     setOp = OP_SET_LOCAL;
+    isConst = current->locals[arg].isConst;
   } else {
     arg = globalSlot(&name);
     getOp = OP_GET_GLOBAL;
     setOp = OP_SET_GLOBAL;
+    isConst = AS_BOOL(vm.globalConsts.values[arg]);
   }
 
   if (canAssign && match(TOKEN_EQUAL)) {
+    if (isConst) {
+      error("Can't assign to a constant variable.");
+    }
     expression();
     emitBytes(setOp, (uint8_t)arg);
   } else {
@@ -358,6 +367,7 @@ ParseRule rules[] = {
   [TOKEN_NUMBER]        = {number,   NULL,   PREC_NONE},
   [TOKEN_AND]           = {NULL,     NULL,   PREC_NONE},
   [TOKEN_CLASS]         = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_CONST]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_ELSE]          = {NULL,     NULL,   PREC_NONE},
   [TOKEN_FALSE]         = {literal,  NULL,   PREC_NONE},
   [TOKEN_FOR]           = {NULL,     NULL,   PREC_NONE},
@@ -437,10 +447,13 @@ static void block(void) {
   consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.");
 }
 
-static void varDeclaration(void) {
+static void varDeclaration(bool isConst) {
   uint8_t global = parseVariable("Expect variable name.");
 
-  if (match(TOKEN_EQUAL)) {
+  if (isConst) {
+    consume(TOKEN_EQUAL, "Expect '=' after constant name.");
+    expression();
+  } else if (match(TOKEN_EQUAL)) {
     expression();
   } else {
     emitByte(OP_NIL);
@@ -448,6 +461,11 @@ static void varDeclaration(void) {
   consume(TOKEN_SEMICOLON,
           "Expect ';' after variable declaration.");
 
+  if (current->scopeDepth > 0) {
+    current->locals[current->localCount - 1].isConst = isConst;
+  } else {
+    vm.globalConsts.values[global] = BOOL_VAL(isConst);
+  }
   defineVariable(global);
 }
 
@@ -472,6 +490,7 @@ static void synchronize(void) {
       case TOKEN_CLASS:
       case TOKEN_FUN:
       case TOKEN_VAR:
+      case TOKEN_CONST:
       case TOKEN_FOR:
       case TOKEN_IF:
       case TOKEN_WHILE:
@@ -489,7 +508,9 @@ static void synchronize(void) {
 
 static void declaration(void) {
   if (match(TOKEN_VAR)) {
-    varDeclaration();
+    varDeclaration(false);
+  } else if (match(TOKEN_CONST)) {
+    varDeclaration(true);
   } else {
     statement();
   }

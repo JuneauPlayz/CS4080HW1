@@ -37,6 +37,7 @@ void initVM(void) {
   initTable(&vm.globalSlots);
   initValueArray(&vm.globalValues);
   initValueArray(&vm.globalNames);
+  initValueArray(&vm.globalConsts);
   initTable(&vm.strings);
 }
 
@@ -44,6 +45,7 @@ void freeVM(void) {
   freeTable(&vm.globalSlots);
   freeValueArray(&vm.globalValues);
   freeValueArray(&vm.globalNames);
+  freeValueArray(&vm.globalConsts);
   freeTable(&vm.strings);
   freeObjects();
   FREE_ARRAY(Value, vm.stack, vm.stackCapacity);

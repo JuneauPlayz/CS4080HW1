@@ -17,6 +17,7 @@ typedef struct {
   Table globalSlots;
   ValueArray globalValues;
   ValueArray globalNames;
+  ValueArray globalConsts;
   Table strings;
   Obj* objects;
 } VM;
