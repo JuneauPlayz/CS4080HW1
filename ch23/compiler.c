@@ -376,6 +376,7 @@ ParseRule rules[] = {
   [TOKEN_RIGHT_PAREN]   = {NULL,     NULL,   PREC_NONE},
   [TOKEN_LEFT_BRACE]    = {NULL,     NULL,   PREC_NONE},
   [TOKEN_RIGHT_BRACE]   = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_COLON]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_COMMA]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_DOT]           = {NULL,     NULL,   PREC_NONE},
   [TOKEN_MINUS]         = {unary,    binary, PREC_TERM},
@@ -395,7 +396,9 @@ ParseRule rules[] = {
   [TOKEN_STRING]        = {string,   NULL,   PREC_NONE},
   [TOKEN_NUMBER]        = {number,   NULL,   PREC_NONE},
   [TOKEN_AND]           = {NULL,     and_,   PREC_AND},
+  [TOKEN_CASE]          = {NULL,     NULL,   PREC_NONE},
   [TOKEN_CLASS]         = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_DEFAULT]       = {NULL,     NULL,   PREC_NONE},
   [TOKEN_ELSE]          = {NULL,     NULL,   PREC_NONE},
   [TOKEN_FALSE]         = {literal,  NULL,   PREC_NONE},
   [TOKEN_FOR]           = {NULL,     NULL,   PREC_NONE},
@@ -406,6 +409,7 @@ ParseRule rules[] = {
   [TOKEN_PRINT]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_RETURN]        = {NULL,     NULL,   PREC_NONE},
   [TOKEN_SUPER]         = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_SWITCH]        = {NULL,     NULL,   PREC_NONE},
   [TOKEN_THIS]          = {NULL,     NULL,   PREC_NONE},
   [TOKEN_TRUE]          = {literal,  NULL,   PREC_NONE},
   [TOKEN_VAR]           = {NULL,     NULL,   PREC_NONE},
@@ -562,6 +566,75 @@ static void printStatement(void) {
   emitByte(OP_PRINT);
 }
 
+static bool atCaseBoundary(void) {
+  return check(TOKEN_CASE) || check(TOKEN_DEFAULT) ||
+         check(TOKEN_RIGHT_BRACE) || check(TOKEN_EOF);
+}
+
+static void caseBody(void) {
+  while (!atCaseBoundary()) {
+    statement();
+  }
+}
+
+static void switchStatement(void) {
+  beginScope();
+  consume(TOKEN_LEFT_PAREN, "Expect '(' after 'switch'.");
+  expression();
+  consume(TOKEN_RIGHT_PAREN, "Expect ')' after value.");
+
+  Token switchValue = {TOKEN_IDENTIFIER, "", 0, parser.previous.line};
+  addLocal(switchValue);
+  markInitialized();
+  uint8_t slot = (uint8_t)(current->localCount - 1);
+
+  consume(TOKEN_LEFT_BRACE, "Expect '{' before switch cases.");
+
+  if (!atCaseBoundary()) {
+    errorAtCurrent("Expect 'case' or 'default' in switch.");
+  }
+
+  int endJumps[UINT8_COUNT];
+  int endCount = 0;
+
+  while (match(TOKEN_CASE)) {
+    emitBytes(OP_GET_LOCAL, slot);
+    expression();
+    consume(TOKEN_COLON, "Expect ':' after case value.");
+    emitByte(OP_EQUAL);
+
+    int nextCase = emitJump(OP_JUMP_IF_FALSE);
+    emitByte(OP_POP);
+    caseBody();
+
+    if (endCount == UINT8_COUNT) {
+      error("Too many cases in switch statement.");
+    } else {
+      endJumps[endCount++] = emitJump(OP_JUMP);
+    }
+
+    patchJump(nextCase);
+    emitByte(OP_POP);
+  }
+
+  if (match(TOKEN_DEFAULT)) {
+    consume(TOKEN_COLON, "Expect ':' after 'default'.");
+    caseBody();
+
+    if (check(TOKEN_CASE) || check(TOKEN_DEFAULT)) {
+      errorAtCurrent("Can't have a case after the default case.");
+    }
+  }
+
+  consume(TOKEN_RIGHT_BRACE, "Expect '}' after switch cases.");
+
+  for (int i = 0; i < endCount; i++) {
+    patchJump(endJumps[i]);
+  }
+
+  endScope();
+}
+
 static void whileStatement(void) {
   int loopStart = currentChunk()->count;
   consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
@@ -589,6 +662,7 @@ static void synchronize(void) {
       case TOKEN_FOR:
       case TOKEN_IF:
       case TOKEN_WHILE:
+      case TOKEN_SWITCH:
       case TOKEN_PRINT:
       case TOKEN_RETURN:
         return;
@@ -618,6 +692,8 @@ static void statement(void) {
     forStatement();
   } else if (match(TOKEN_IF)) {
     ifStatement();
+  } else if (match(TOKEN_SWITCH)) {
+    switchStatement();
   } else if (match(TOKEN_WHILE)) {
     whileStatement();
   } else if (match(TOKEN_LEFT_BRACE)) {
