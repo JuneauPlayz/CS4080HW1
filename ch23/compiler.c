@@ -51,8 +51,15 @@ typedef struct {
   int scopeDepth;
 } Compiler;
 
+typedef struct Loop {
+  struct Loop* enclosing;
+  int start;
+  int scopeDepth;
+} Loop;
+
 Parser parser;
 Compiler* current = NULL;
+Loop* innermostLoop = NULL;
 Chunk* compilingChunk;
 
 static Chunk* currentChunk(void) {
@@ -398,6 +405,7 @@ ParseRule rules[] = {
   [TOKEN_AND]           = {NULL,     and_,   PREC_AND},
   [TOKEN_CASE]          = {NULL,     NULL,   PREC_NONE},
   [TOKEN_CLASS]         = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_CONTINUE]      = {NULL,     NULL,   PREC_NONE},
   [TOKEN_DEFAULT]       = {NULL,     NULL,   PREC_NONE},
   [TOKEN_ELSE]          = {NULL,     NULL,   PREC_NONE},
   [TOKEN_FALSE]         = {literal,  NULL,   PREC_NONE},
@@ -499,6 +507,22 @@ static void expressionStatement(void) {
   emitByte(OP_POP);
 }
 
+static void continueStatement(void) {
+  if (innermostLoop == NULL) {
+    error("Can't use 'continue' outside of a loop.");
+  }
+  consume(TOKEN_SEMICOLON, "Expect ';' after 'continue'.");
+  if (innermostLoop == NULL) return;
+
+  for (int i = current->localCount - 1;
+       i >= 0 && current->locals[i].depth > innermostLoop->scopeDepth;
+       i--) {
+    emitByte(OP_POP);
+  }
+
+  emitLoop(innermostLoop->start);
+}
+
 static void forStatement(void) {
   beginScope();
   consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
@@ -531,7 +555,10 @@ static void forStatement(void) {
     patchJump(bodyJump);
   }
 
+  Loop loop = {innermostLoop, loopStart, current->scopeDepth};
+  innermostLoop = &loop;
   statement();
+  innermostLoop = loop.enclosing;
   emitLoop(loopStart);
 
   if (exitJump != -1) {
@@ -643,7 +670,11 @@ static void whileStatement(void) {
 
   int exitJump = emitJump(OP_JUMP_IF_FALSE);
   emitByte(OP_POP);
+
+  Loop loop = {innermostLoop, loopStart, current->scopeDepth};
+  innermostLoop = &loop;
   statement();
+  innermostLoop = loop.enclosing;
   emitLoop(loopStart);
 
   patchJump(exitJump);
@@ -663,6 +694,7 @@ static void synchronize(void) {
       case TOKEN_IF:
       case TOKEN_WHILE:
       case TOKEN_SWITCH:
+      case TOKEN_CONTINUE:
       case TOKEN_PRINT:
       case TOKEN_RETURN:
         return;
@@ -688,6 +720,8 @@ static void declaration(void) {
 static void statement(void) {
   if (match(TOKEN_PRINT)) {
     printStatement();
+  } else if (match(TOKEN_CONTINUE)) {
+    continueStatement();
   } else if (match(TOKEN_FOR)) {
     forStatement();
   } else if (match(TOKEN_IF)) {
