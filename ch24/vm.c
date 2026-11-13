@@ -161,17 +161,21 @@ static void concatenate(void) {
 }
 
 static InterpretResult run(void) {
-  CallFrame* frame = &vm.frames[vm.frameCount - 1];
+  CallFrame* frame;
+  register uint8_t* ip;
 
-#define READ_BYTE() (*frame->ip++)
+#define LOAD_FRAME() \
+    (frame = &vm.frames[vm.frameCount - 1], ip = frame->ip)
+#define STORE_IP() (frame->ip = ip)
+#define READ_BYTE() (*ip++)
 #define READ_SHORT() \
-    (frame->ip += 2, \
-    (uint16_t)((frame->ip[-2] << 8) | frame->ip[-1]))
+    (ip += 2, (uint16_t)((ip[-2] << 8) | ip[-1]))
 #define READ_CONSTANT() \
     (frame->function->chunk.constants.values[READ_BYTE()])
 #define BINARY_OP(valueType, op) \
     do { \
       if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1))) { \
+        STORE_IP(); \
         runtimeError("Operands must be numbers."); \
         return INTERPRET_RUNTIME_ERROR; \
       } \
@@ -179,6 +183,8 @@ static InterpretResult run(void) {
       double a = AS_NUMBER(pop()); \
       push(valueType(a op b)); \
     } while (false)
+
+  LOAD_FRAME();
 
   for (;;) {
 #ifdef DEBUG_TRACE_EXECUTION
@@ -190,7 +196,7 @@ static InterpretResult run(void) {
     }
     printf("\n");
     disassembleInstruction(&frame->function->chunk,
-        (int)(frame->ip - frame->function->chunk.code));
+        (int)(ip - frame->function->chunk.code));
 #endif
 
     uint8_t instruction;
@@ -218,6 +224,7 @@ static InterpretResult run(void) {
         uint8_t slot = READ_BYTE();
         Value value = vm.globalValues.values[slot];
         if (IS_UNDEFINED(value)) {
+          STORE_IP();
           runtimeError("Undefined variable '%s'.",
                        AS_CSTRING(vm.globalNames.values[slot]));
           return INTERPRET_RUNTIME_ERROR;
@@ -233,6 +240,7 @@ static InterpretResult run(void) {
       case OP_SET_GLOBAL: {
         uint8_t slot = READ_BYTE();
         if (IS_UNDEFINED(vm.globalValues.values[slot])) {
+          STORE_IP();
           runtimeError("Undefined variable '%s'.",
                        AS_CSTRING(vm.globalNames.values[slot]));
           return INTERPRET_RUNTIME_ERROR;
@@ -256,6 +264,7 @@ static InterpretResult run(void) {
           double a = AS_NUMBER(pop());
           push(NUMBER_VAL(a + b));
         } else {
+          STORE_IP();
           runtimeError(
               "Operands must be two numbers or two strings.");
           return INTERPRET_RUNTIME_ERROR;
@@ -270,6 +279,7 @@ static InterpretResult run(void) {
         break;
       case OP_NEGATE:
         if (!IS_NUMBER(peek(0))) {
+          STORE_IP();
           runtimeError("Operand must be a number.");
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -286,25 +296,26 @@ static InterpretResult run(void) {
       }
       case OP_JUMP: {
         uint16_t offset = READ_SHORT();
-        frame->ip += offset;
+        ip += offset;
         break;
       }
       case OP_JUMP_IF_FALSE: {
         uint16_t offset = READ_SHORT();
-        if (isFalsey(peek(0))) frame->ip += offset;
+        if (isFalsey(peek(0))) ip += offset;
         break;
       }
       case OP_LOOP: {
         uint16_t offset = READ_SHORT();
-        frame->ip -= offset;
+        ip -= offset;
         break;
       }
       case OP_CALL: {
         int argCount = READ_BYTE();
+        STORE_IP();
         if (!callValue(peek(argCount), argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
-        frame = &vm.frames[vm.frameCount - 1];
+        LOAD_FRAME();
         break;
       }
       case OP_RETURN: {
@@ -317,12 +328,14 @@ static InterpretResult run(void) {
 
         vm.stackTop = vm.stack + frame->slots;
         push(result);
-        frame = &vm.frames[vm.frameCount - 1];
+        LOAD_FRAME();
         break;
       }
     }
   }
 
+#undef LOAD_FRAME
+#undef STORE_IP
 #undef READ_BYTE
 #undef READ_SHORT
 #undef READ_CONSTANT
