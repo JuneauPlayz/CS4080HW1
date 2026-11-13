@@ -1,0 +1,23 @@
+fun mod(a, b) {
+  return a - b * floor(a / b);
+}
+
+fun isPrime(n) {
+  if (n < 2) return false;
+  var limit = floor(sqrt(n));
+  for (var d = 2; d <= limit; d = d + 1) {
+    if (mod(n, d) == 0) return false;
+  }
+  return true;
+}
+
+var found = "";
+var count = 0;
+for (var n = 2; n < 50; n = n + 1) {
+  if (isPrime(n)) {
+    found = found + str(n) + " ";
+    count = count + 1;
+  }
+}
+print "Primes under 50: " + found;
+print "That is " + str(count) + " primes.";

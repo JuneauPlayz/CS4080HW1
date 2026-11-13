@@ -60,6 +60,71 @@ static Value sqrtNative(int argCount, Value* args) {
   return NUMBER_VAL(sqrt(n));
 }
 
+static Value floorNative(int argCount, Value* args) {
+  if (!IS_NUMBER(args[0])) {
+    runtimeError("Argument to floor() must be a number.");
+    return UNDEFINED_VAL;
+  }
+
+  return NUMBER_VAL(floor(AS_NUMBER(args[0])));
+}
+
+static Value lenNative(int argCount, Value* args) {
+  if (!IS_STRING(args[0])) {
+    runtimeError("Argument to len() must be a string.");
+    return UNDEFINED_VAL;
+  }
+
+  return NUMBER_VAL((double)AS_STRING(args[0])->length);
+}
+
+static Value strNative(int argCount, Value* args) {
+  Value value = args[0];
+  char buffer[64];
+
+  if (IS_STRING(value)) return value;
+  if (IS_NUMBER(value)) {
+    snprintf(buffer, sizeof(buffer), "%g", AS_NUMBER(value));
+  } else if (IS_BOOL(value)) {
+    snprintf(buffer, sizeof(buffer), "%s",
+             AS_BOOL(value) ? "true" : "false");
+  } else if (IS_NIL(value)) {
+    snprintf(buffer, sizeof(buffer), "nil");
+  } else if (IS_FUNCTION(value)) {
+    ObjString* name = AS_FUNCTION(value)->name;
+    if (name == NULL) {
+      snprintf(buffer, sizeof(buffer), "<script>");
+    } else {
+      snprintf(buffer, sizeof(buffer), "<fn %.50s>", name->chars);
+    }
+  } else {
+    snprintf(buffer, sizeof(buffer), "<native fn>");
+  }
+
+  return OBJ_VAL(copyString(buffer, (int)strlen(buffer)));
+}
+
+static Value substrNative(int argCount, Value* args) {
+  if (!IS_STRING(args[0]) || !IS_NUMBER(args[1]) ||
+      !IS_NUMBER(args[2])) {
+    runtimeError("substr() takes a string and two numbers.");
+    return UNDEFINED_VAL;
+  }
+
+  ObjString* string = AS_STRING(args[0]);
+  double start = AS_NUMBER(args[1]);
+  double end = AS_NUMBER(args[2]);
+  if (start != floor(start) || end != floor(end) ||
+      start < 0 || end < start || end > string->length) {
+    runtimeError("substr() range %g to %g is out of bounds for length %d.",
+                 start, end, string->length);
+    return UNDEFINED_VAL;
+  }
+
+  return OBJ_VAL(copyString(string->chars + (int)start,
+                            (int)(end - start)));
+}
+
 static void defineNative(const char* name, NativeFn function,
                          int arity) {
   push(OBJ_VAL(copyString(name, (int)strlen(name))));
@@ -85,6 +150,10 @@ void initVM(void) {
 
   defineNative("clock", clockNative, 0);
   defineNative("sqrt", sqrtNative, 1);
+  defineNative("floor", floorNative, 1);
+  defineNative("len", lenNative, 1);
+  defineNative("str", strNative, 1);
+  defineNative("substr", substrNative, 3);
 }
 
 void freeVM(void) {

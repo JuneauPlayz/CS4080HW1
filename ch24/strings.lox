@@ -1,0 +1,26 @@
+fun reverse(s) {
+  var out = "";
+  for (var i = len(s); i > 0; i = i - 1) {
+    out = out + substr(s, i - 1, i);
+  }
+  return out;
+}
+
+fun isPalindrome(s) {
+  return s == reverse(s);
+}
+
+fun countChar(s, c) {
+  var count = 0;
+  for (var i = 0; i < len(s); i = i + 1) {
+    if (substr(s, i, i + 1) == c) count = count + 1;
+  }
+  return count;
+}
+
+print reverse("crafting interpreters");
+print "racecar is a palindrome: " + str(isPalindrome("racecar"));
+print "clox is a palindrome: " + str(isPalindrome("clox"));
+print "interpreters has " + str(len("interpreters")) + " letters and " +
+    str(countChar("interpreters", "e")) + " e's.";
+print "First word: " + substr("hello world", 0, 5);

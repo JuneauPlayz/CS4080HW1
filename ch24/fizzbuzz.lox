@@ -1,0 +1,13 @@
+fun mod(a, b) {
+  return a - b * floor(a / b);
+}
+
+var line = "";
+for (var i = 1; i <= 15; i = i + 1) {
+  var word = str(i);
+  if (mod(i, 15) == 0) word = "FizzBuzz";
+  else if (mod(i, 3) == 0) word = "Fizz";
+  else if (mod(i, 5) == 0) word = "Buzz";
+  line = line + word + " ";
+}
+print line;
