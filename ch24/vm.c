@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -44,6 +45,21 @@ static void runtimeError(const char* format, ...) {
   resetStack();
 }
 
+static Value sqrtNative(int argCount, Value* args) {
+  if (!IS_NUMBER(args[0])) {
+    runtimeError("Argument to sqrt() must be a number.");
+    return UNDEFINED_VAL;
+  }
+
+  double n = AS_NUMBER(args[0]);
+  if (n < 0) {
+    runtimeError("Can't take sqrt() of a negative number.");
+    return UNDEFINED_VAL;
+  }
+
+  return NUMBER_VAL(sqrt(n));
+}
+
 static void defineNative(const char* name, NativeFn function,
                          int arity) {
   push(OBJ_VAL(copyString(name, (int)strlen(name))));
@@ -68,6 +84,7 @@ void initVM(void) {
   initTable(&vm.strings);
 
   defineNative("clock", clockNative, 0);
+  defineNative("sqrt", sqrtNative, 1);
 }
 
 void freeVM(void) {
@@ -138,6 +155,8 @@ static bool callValue(Value callee, int argCount) {
 
         Value result = native->function(argCount,
                                         vm.stackTop - argCount);
+        if (IS_UNDEFINED(result)) return false;
+
         vm.stackTop -= argCount + 1;
         push(result);
         return true;
