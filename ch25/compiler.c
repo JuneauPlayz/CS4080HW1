@@ -55,6 +55,8 @@ typedef struct Loop {
   struct Loop* enclosing;
   int start;
   int scopeDepth;
+  int loopVariable;
+  int innerVariable;
 } Loop;
 
 typedef enum {
@@ -660,6 +662,12 @@ static void continueStatement(void) {
   consume(TOKEN_SEMICOLON, "Expect ';' after 'continue'.");
   if (loop == NULL) return;
 
+  if (loop->innerVariable != -1) {
+    emitBytes(OP_GET_LOCAL, (uint8_t)loop->innerVariable);
+    emitBytes(OP_SET_LOCAL, (uint8_t)loop->loopVariable);
+    emitByte(OP_POP);
+  }
+
   for (int i = current->localCount - 1;
        i >= 0 && current->locals[i].depth > loop->scopeDepth;
        i--) {
@@ -676,9 +684,11 @@ static void continueStatement(void) {
 static void forStatement(void) {
   beginScope();
   consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
+  int loopVariable = -1;
   if (match(TOKEN_SEMICOLON)) {
   } else if (match(TOKEN_VAR)) {
     varDeclaration();
+    loopVariable = current->localCount - 1;
   } else {
     expressionStatement();
   }
@@ -705,10 +715,27 @@ static void forStatement(void) {
     patchJump(bodyJump);
   }
 
-  Loop loop = {current->innermostLoop, loopStart, current->scopeDepth};
+  Loop loop = {current->innermostLoop, loopStart, current->scopeDepth,
+               loopVariable, -1};
+  if (loopVariable != -1) {
+    beginScope();
+    emitBytes(OP_GET_LOCAL, (uint8_t)loopVariable);
+    addLocal(current->locals[loopVariable].name);
+    markInitialized();
+    loop.innerVariable = current->localCount - 1;
+  }
+
   current->innermostLoop = &loop;
   statement();
   current->innermostLoop = loop.enclosing;
+
+  if (loopVariable != -1) {
+    emitBytes(OP_GET_LOCAL, (uint8_t)loop.innerVariable);
+    emitBytes(OP_SET_LOCAL, (uint8_t)loopVariable);
+    emitByte(OP_POP);
+    endScope();
+  }
+
   emitLoop(loopStart);
 
   if (exitJump != -1) {
@@ -835,7 +862,8 @@ static void whileStatement(void) {
   int exitJump = emitJump(OP_JUMP_IF_FALSE);
   emitByte(OP_POP);
 
-  Loop loop = {current->innermostLoop, loopStart, current->scopeDepth};
+  Loop loop = {current->innermostLoop, loopStart, current->scopeDepth,
+               -1, -1};
   current->innermostLoop = &loop;
   statement();
   current->innermostLoop = loop.enclosing;

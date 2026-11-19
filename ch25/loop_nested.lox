@@ -1,0 +1,10 @@
+var g1; var g2;
+for (var i = 0; i < 2; i = i + 1) {
+  for (var j = 0; j < 2; j = j + 1) {
+    fun show() { print str(i) + "," + str(j); }
+    if (i == 0 and j == 1) g1 = show;
+    if (i == 1 and j == 0) g2 = show;
+  }
+}
+g1();
+g2();

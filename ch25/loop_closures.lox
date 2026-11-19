@@ -1,0 +1,10 @@
+var f0; var f1; var f2;
+for (var i = 0; i < 3; i = i + 1) {
+  fun show() { print i; }
+  if (i == 0) f0 = show;
+  if (i == 1) f1 = show;
+  if (i == 2) f2 = show;
+}
+f0();
+f1();
+f2();
