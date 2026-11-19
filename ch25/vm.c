@@ -32,7 +32,7 @@ static void runtimeError(const char* format, ...) {
 
   for (int i = vm.frameCount - 1; i >= 0; i--) {
     CallFrame* frame = &vm.frames[i];
-    ObjFunction* function = frame->closure->function;
+    ObjFunction* function = frame->function;
     size_t instruction = frame->ip - function->chunk.code - 1;
     fprintf(stderr, "[line %d] in ",
             function->chunk.lines[instruction]);
@@ -199,10 +199,11 @@ static Value peek(int distance) {
   return vm.stackTop[-1 - distance];
 }
 
-static bool call(ObjClosure* closure, int argCount) {
-  if (argCount != closure->function->arity) {
+static bool call(ObjFunction* function, ObjClosure* closure,
+                 int argCount) {
+  if (argCount != function->arity) {
     runtimeError("Expected %d arguments but got %d.",
-        closure->function->arity, argCount);
+        function->arity, argCount);
     return false;
   }
 
@@ -212,8 +213,9 @@ static bool call(ObjClosure* closure, int argCount) {
   }
 
   CallFrame* frame = &vm.frames[vm.frameCount++];
+  frame->function = function;
   frame->closure = closure;
-  frame->ip = closure->function->chunk.code;
+  frame->ip = function->chunk.code;
   frame->slots = (int)(vm.stackTop - vm.stack) - argCount - 1;
   return true;
 }
@@ -221,8 +223,12 @@ static bool call(ObjClosure* closure, int argCount) {
 static bool callValue(Value callee, int argCount) {
   if (IS_OBJ(callee)) {
     switch (OBJ_TYPE(callee)) {
-      case OBJ_CLOSURE:
-        return call(AS_CLOSURE(callee), argCount);
+      case OBJ_CLOSURE: {
+        ObjClosure* closure = AS_CLOSURE(callee);
+        return call(closure->function, closure, argCount);
+      }
+      case OBJ_FUNCTION:
+        return call(AS_FUNCTION(callee), NULL, argCount);
       case OBJ_NATIVE: {
         ObjNative* native = (ObjNative*)AS_OBJ(callee);
         if (argCount != native->arity) {
@@ -310,7 +316,7 @@ static InterpretResult run(void) {
 #define READ_SHORT() \
     (ip += 2, (uint16_t)((ip[-2] << 8) | ip[-1]))
 #define READ_CONSTANT() \
-    (frame->closure->function->chunk.constants.values[READ_BYTE()])
+    (frame->function->chunk.constants.values[READ_BYTE()])
 #define BINARY_OP(valueType, op) \
     do { \
       if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1))) { \
@@ -334,8 +340,8 @@ static InterpretResult run(void) {
       printf(" ]");
     }
     printf("\n");
-    disassembleInstruction(&frame->closure->function->chunk,
-        (int)(ip - frame->closure->function->chunk.code));
+    disassembleInstruction(&frame->function->chunk,
+        (int)(ip - frame->function->chunk.code));
 #endif
 
     uint8_t instruction;
@@ -517,10 +523,7 @@ InterpretResult interpret(const char* source) {
   if (function == NULL) return INTERPRET_COMPILE_ERROR;
 
   push(OBJ_VAL(function));
-  ObjClosure* closure = newClosure(function);
-  pop();
-  push(OBJ_VAL(closure));
-  call(closure, 0);
+  call(function, NULL, 0);
 
   return run();
 }

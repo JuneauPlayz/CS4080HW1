@@ -11,6 +11,7 @@
 #define IS_UNDEFINED(value) (IS_OBJ(value) && AS_OBJ(value) == NULL)
 
 typedef struct {
+  ObjFunction* function;
   ObjClosure* closure;
   uint8_t* ip;
   int slots;
