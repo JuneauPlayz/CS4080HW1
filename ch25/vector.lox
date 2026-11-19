@@ -1,0 +1,29 @@
+fun Vector(x, y) {
+  fun add(other) {
+    return Vector(x + other("x"), y + other("y"));
+  }
+
+  fun self(method) {
+    if (method == "x") return x;
+    if (method == "y") return y;
+    if (method == "add") return add;
+    if (method == "string") return "(" + str(x) + ", " + str(y) + ")";
+    print "Unknown method: " + method;
+    return nil;
+  }
+
+  return self;
+}
+
+var a = Vector(1, 2);
+var b = Vector(3, 4);
+var c = a("add")(b);
+
+print "a = " + a("string");
+print "b = " + b("string");
+print "a + b = " + c("string");
+print c("x");
+print c("y");
+print "a + b + c = " + a("add")(b)("add")(c)("string");
+print "a is still " + a("string");
+a("length");
